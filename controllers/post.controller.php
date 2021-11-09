@@ -25,7 +25,7 @@ function init()
 		$startFrom = max(0, floor($startFrom - $config["postsPerPage"] / 2));
 					
 		// Redirect.
-		redirect($conversationId, $slug, "?start=$startFrom", "#p$postId");
+		if ($postId) redirectSimple(makeLink(conversationLink($conversationId, $conversation["title"])."?start=$startFrom#p$postId"));
 	}
 	
 	// No post ID given?  Back home we go.

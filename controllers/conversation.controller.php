@@ -41,7 +41,7 @@ function init()
 	$this->eso->addVarToJS("time", time());
 	
 	// Work out the title of the page.
-	$this->title = $this->conversation["id"] ? sanitizeHTML($conversation["title"]) : $language["Start a conversation"];
+	$this->title = $this->conversation["id"] ? sanitizeHTML($this->conversation["title"]) : $language["Start a conversation"];
 
 	// If the user is attempting to start a conversation but they don't have permission, discontinue.
 	// (The view will show an error.)
@@ -64,7 +64,7 @@ function init()
 			// post.
 			if (!$id) $this->conversation["draft"] = $_POST["content"];
 			// Otherwise, redirect to the newly-created conversation!
-			else redirect($this->conversation["id"], $this->conversation["slug"]);
+			else redirectSimple(makeLink(conversationLink($this->conversation["id"], $this->conversation["title"])."/?start=$startFrom#p$id"));
 		}
 			
 		// Save a draft in an existing conversation.
@@ -103,10 +103,15 @@ function init()
 	// If the conversation does exist...
 	if ($this->conversation["id"]) {
 	
+		// Construct a canonical URL to this page.
+		$url = conversationLink($this->conversation["id"], $this->conversation["title"]);
+		$this->canonicalLink = makeLink($url, true);
+
 		// If the slug in the URL is not the same as the actual slug, redirect.
-		if (@$_GET["q3"] != $this->conversation["slug"]) {
-			header("HTTP/1.1 301 Moved Permanently");
-			redirect($this->conversation["id"], $this->conversation["slug"], !empty($_GET["start"]) ? "?start={$_GET["start"]}" : "");
+		$slug = slug($this->conversation["title"]);
+		if ($slug and (strpos($this->conversation["id"], "-") === false or substr($this->conversation["id"], strpos($this->conversation["id"], "-") + 1) != $slug)) {
+			// header("HTTP/1.1 301 Moved Permanently");
+			redirectSimple(makeLink($url), 301);
 		}
 		
 		// Work out which post we are starting from.
@@ -1450,7 +1455,7 @@ function validateTitle(&$title)
 {
 	$title = substr($title, 0, 63);
 	if (!strlen($title)) return "emptyTitle";
-	if (strpos($title, '0') === 0) return "emptyTitle";
+	// if (strpos($title, '0') === 0) return "emptyTitle";
 	return $this->callHook("validateTitle", array(&$title), true);
 }
 

@@ -99,6 +99,16 @@ function highlight($text, $words)
 	return $text; 
 }
 
+if (!function_exists("conversationLink")) {
+
+// Construct a URL to a conversation, given its ID and title.
+function conversationLink($conversationId, $title = "")
+{
+	return $conversationId.(($title = slug($title)) ? "-$title" : "");
+}
+
+}
+
 // Returns an array of the parameters in a mod_rewrite or index.php/... request.
 // ex. passing /eso/forum/index.php/conversation/123 returns [conversation, 123]
 //     passing /base/path/to/forum/search/test?query=string returns [search, test]
@@ -185,26 +195,33 @@ function translate($string)
 	return array_key_exists($string, $language) ? $language[$string] : $string;
 }
 
-// Generate a relative URL based on a variable number of arguments passed to the function.
+// Construct a URL, given a request path.
+// Constructs a relative or absolute URL which can be used to link to a page on the forum.
 // The exact output of the function depends on the values of $config["useFriendlyURLs"] and $config["useModRewrite"].
 // ex. makeLink(123, "?start=4") -> "123?start=4", "index.php/123?start=4", "?q1=123&start=4"
 // another ex. makeLink(61, "test-conversation", "?editPost=425", "&start=20", "#p425")
-function makeLink()
+function makeLink($url = "", $absolute = false)
 {
-	global $config;
-	$link = "";
-	$args = func_get_args();
-	// Loop through the arguments.
-	foreach ($args as $k => $q) {
-		if (empty($q)) continue;
-		// If we are using friendly URLs, append a "/" to the argument if it's not prefixed with "#", "?", or "&".
-		if (!empty($config["useFriendlyURLs"])) $link .= ($q[0] == "#" or $q[0] == "?" or $q[0] == "&") ? $q : "$q/";
-		// Otherwise, convert anything not prefixed with "#", "?", or "&" to a "?q1=x" argument.
-		else {
-			if ($q[0] == "?" and $k != 0) $q[0] = "&";
-			$link .= ($q[0] == "#" or $q[0] == "?" or $q[0] == "&") ? $q : ($k == 0 ? "?" : "&") . "q" . ($k + 1) . "=$q";
-		}
+	if (preg_match('/^(https?\:)?\/\//', $url)) return $url;
+
+	// Strip off the hash.
+	$hash = strstr($url, "#");
+	if ($hash) $url = substr($url, 0, -strlen($hash));
+
+	// Strip off the query string.
+	$query = strstr($url, "?");
+	if ($query) $url = substr($url, 0, -strlen($query));
+
+	// If we don't have nice urls, use ?p=controller/method/argument instead.
+	if (!empty($config["useFriendlyURLs"])) {
+		$link = "?p=".$url;
+		if ($query) $query[0] = "&";
 	}
+	else $link = $url;
+
+	// Re-add the query string and has to be the URL.
+	$link .= $query . $hash;
+
 	// If we're not using mod_rewrite, we need to prepend "index.php/" to the link.
 	if (!empty($config["useFriendlyURLs"]) and empty($config["useModRewrite"])) $link = "index.php/$link";
 	return $link;
@@ -228,6 +245,16 @@ function redirect()
 	$args = func_get_args();
 	header("Location: " . sanitizeForHTTP($config["baseURL"] . call_user_func_array("makeLink", $args)));
 	flush(); // Opera sometimes displays a blank "redirection" page if this isn't here. :/
+	exit;
+}
+
+// Send a HTTP Location header to redirect to a specific page without constructing the URL.
+function redirectSimple()
+{
+	// Clear the output buffer, and send the location header.
+	@ob_end_clean();
+	header("Location: ".sanitizeForHTTP($destination), true, $code);
+	flush();
 	exit;
 }
 
